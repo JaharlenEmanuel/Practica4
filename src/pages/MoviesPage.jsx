@@ -7,38 +7,52 @@ import useFetch from '../hooks/useFetch'
 
 export default function MoviesPage() {
     const navigate = useNavigate()
-
-    // Usar el hook useFetch
-    const { data, loading, error } = useFetch('/sample.json')
-
-    // Estados derivados de los datos
     const [allMovies, setAllMovies] = useState([])
     const [currentMovies, setCurrentMovies] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     // Estado para paginación
     const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage] = useState(10) // Cambiado a 10 por página
+    const [itemsPerPage] = useState(12)
 
     // Estado para el modal
     const [selectedItem, setSelectedItem] = useState(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
 
-    // Procesar datos cuando llegan del fetch
     useEffect(() => {
-        if (data && data.entries) {
-            // Filtrar solo películas
-            const moviesData = data.entries.filter(
-                item => item.programType === 'movie'
-            )
+        const fetchMovies = async () => {
+            try {
+                setLoading(true)
+                const response = await fetch('/sample.json')
 
-            // Ordenar por año de lanzamiento (más reciente primero)
-            const sortedMovies = moviesData.sort((a, b) =>
-                (b.releaseYear || 0) - (a.releaseYear || 0)
-            )
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`)
+                }
 
-            setAllMovies(sortedMovies)
+                const data = await response.json()
+
+                // Filtrar solo Movies
+                const moviesData = data.entries.filter(
+                    item => item.programType === 'movie'
+                )
+
+                // Ordenar por año de lanzamiento (más reciente primero)
+                const sortedMovies = moviesData.sort((a, b) =>
+                    (b.releaseYear || 0) - (a.releaseYear || 0)
+                )
+
+                setAllMovies(sortedMovies)
+                setLoading(false)
+            } catch (err) {
+                console.error('Error fetching Movies:', err)
+                setError(err.message || 'Failed to fetch Movies')
+                setLoading(false)
+            }
         }
-    }, [data])
+
+        fetchMovies()
+    }, [])
 
     // Calcular movies para la página actual
     useEffect(() => {
@@ -52,16 +66,15 @@ export default function MoviesPage() {
 
     // Cambiar de página
     const goToPage = (pageNumber) => {
-        if (pageNumber >= 1 && pageNumber <= totalPages) {
-            setCurrentPage(pageNumber)
-            window.scrollTo(0, 0)
-        }
+        setCurrentPage(pageNumber)
+        window.scrollTo(0, 0)
     }
 
     // Abrir modal con los detalles de la movie
     const handleItemClick = (movie) => {
         setSelectedItem(movie)
         setIsModalOpen(true)
+        // Bloquear scroll del body
         document.body.style.overflow = 'hidden'
     }
 
@@ -69,13 +82,12 @@ export default function MoviesPage() {
     const closeModal = () => {
         setIsModalOpen(false)
         setSelectedItem(null)
+        // Restaurar scroll
         document.body.style.overflow = 'unset'
     }
 
     // Botones de paginación
     const renderPagination = () => {
-        if (totalPages <= 1) return null
-
         const pageNumbers = []
         const maxPagesToShow = 5
 
@@ -90,10 +102,11 @@ export default function MoviesPage() {
             pageNumbers.push(i)
         }
 
+
         return (
             <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
                 {/* Información de página */}
-                <div className="text-gray-400 text-sm bg-gray-800/50 px-4 py-2 rounded-lg">
+                <div className="text-gray-400 text-sm  px-4 py-2 rounded-lg">
                     Page {currentPage} of {totalPages} •
                     Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
                     {Math.min(currentPage * itemsPerPage, allMovies.length)} of{' '}
@@ -106,8 +119,8 @@ export default function MoviesPage() {
                     <button
                         onClick={() => goToPage(1)}
                         disabled={currentPage === 1}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === 1
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        className={`px-3 py-2 rounded-lg text-sm ${currentPage === 1
+                            ? ' text-gray-500 cursor-not-allowed'
                             : 'bg-gray-700 hover:bg-gray-600 text-white'
                             }`}
                     >
@@ -118,7 +131,7 @@ export default function MoviesPage() {
                     <button
                         onClick={() => goToPage(currentPage - 1)}
                         disabled={currentPage === 1}
-                        className={`px-3 py-2 rounded-lg transition-colors ${currentPage === 1
+                        className={`px-3 py-2 rounded-lg ${currentPage === 1
                             ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             : 'bg-gray-700 hover:bg-gray-600 text-white'
                             }`}
@@ -136,7 +149,7 @@ export default function MoviesPage() {
                         <button
                             key={number}
                             onClick={() => goToPage(number)}
-                            className={`px-3 py-2 min-w-10 rounded-lg transition-colors ${currentPage === number
+                            className={`px-3 py-2 min-w-10 rounded-lg ${currentPage === number
                                 ? 'bg-green-600 text-white font-bold'
                                 : 'bg-gray-700 hover:bg-gray-600 text-white'
                                 }`}
@@ -154,7 +167,7 @@ export default function MoviesPage() {
                     <button
                         onClick={() => goToPage(currentPage + 1)}
                         disabled={currentPage === totalPages}
-                        className={`px-3 py-2 rounded-lg transition-colors ${currentPage === totalPages
+                        className={`px-3 py-2 rounded-lg ${currentPage === totalPages
                             ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             : 'bg-gray-700 hover:bg-gray-600 text-white'
                             }`}
@@ -166,7 +179,7 @@ export default function MoviesPage() {
                     <button
                         onClick={() => goToPage(totalPages)}
                         disabled={currentPage === totalPages}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === totalPages
+                        className={`px-3 py-2 rounded-lg text-sm ${currentPage === totalPages
                             ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
                             : 'bg-gray-700 hover:bg-gray-600 text-white'
                             }`}
@@ -181,7 +194,7 @@ export default function MoviesPage() {
                     <select
                         value={currentPage}
                         onChange={(e) => goToPage(Number(e.target.value))}
-                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm transition-colors hover:bg-gray-600"
+                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm"
                     >
                         {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
                             <option key={page} value={page}>
@@ -193,6 +206,7 @@ export default function MoviesPage() {
             </div>
         )
     }
+
 
     return (
         <div className="min-h-screen bg-gray-900 text-white">
@@ -208,17 +222,17 @@ export default function MoviesPage() {
                 <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
                     <div>
                         <h1 className="text-4xl font-bold">Popular Movies</h1>
-                        {!loading && !error && allMovies.length > 0 && (
+                        {!loading && !error && (
                             <p className="text-gray-400 mt-2">
-                                {allMovies.length} movies • {totalPages} pages • {itemsPerPage} per page
+                                {allMovies.length} movies • {totalPages} pages
                             </p>
                         )}
                     </div>
 
-                    {!loading && !error && allMovies.length > 0 && (
+                    {!loading && !error && (
                         <div className="flex items-center gap-4">
-                            <div className="text-gray-400 text-sm bg-gray-800/50 px-4 py-2 rounded-lg">
-                                {itemsPerPage} movies per page
+                            <div className="text-gray-400 text-sm bg-gray-800 px-4 py-2 rounded-lg">
+                                {itemsPerPage} per page
                             </div>
                         </div>
                     )}
@@ -293,7 +307,7 @@ export default function MoviesPage() {
                         {totalPages > 1 && renderPagination()}
 
                         {/* Información del grid */}
-                        {!loading && !error && allMovies.length > 0 && (
+                        {!loading && !error && (
                             <div className="mt-6 text-center text-gray-400 text-sm">
                                 Grid: {currentMovies.length} movies displayed •
                                 Page {currentPage} of {totalPages}

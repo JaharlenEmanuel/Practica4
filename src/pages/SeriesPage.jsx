@@ -3,42 +3,55 @@ import { useNavigate } from 'react-router-dom'
 import Header from '../components/Header'
 import Footer from '../components/Footer'
 import DetailsModal from '../components/DetailsModal'
-import useFetch from '../hooks/useFetch'
 
 export default function SeriesPage() {
     const navigate = useNavigate()
-
-    // Usar el hook useFetch
-    const { data, loading, error } = useFetch('/sample.json')
-
-    // Estados derivados de los datos
     const [allSeries, setAllSeries] = useState([])
     const [currentSeries, setCurrentSeries] = useState([])
+    const [loading, setLoading] = useState(true)
+    const [error, setError] = useState(null)
 
     // Estado para paginación
     const [currentPage, setCurrentPage] = useState(1)
-    const [itemsPerPage] = useState(10) // 10 series por página
+    const [itemsPerPage] = useState(12)
 
     // Estado para el modal
     const [selectedItem, setSelectedItem] = useState(null)
     const [isModalOpen, setIsModalOpen] = useState(false)
 
-    // Procesar datos cuando llegan del fetch
     useEffect(() => {
-        if (data && data.entries) {
-            // Filtrar solo series
-            const seriesData = data.entries.filter(
-                item => item.programType === 'series'
-            )
+        const fetchSeries = async () => {
+            try {
+                setLoading(true)
+                const response = await fetch('/sample.json')
 
-            // Ordenar por año de lanzamiento (más reciente primero)
-            const sortedSeries = seriesData.sort((a, b) =>
-                (b.releaseYear || 0) - (a.releaseYear || 0)
-            )
+                if (!response.ok) {
+                    throw new Error(`Error ${response.status}: ${response.statusText}`)
+                }
 
-            setAllSeries(sortedSeries)
+                const data = await response.json()
+
+                // Filtrar solo series
+                const seriesData = data.entries.filter(
+                    item => item.programType === 'series'
+                )
+
+                // Ordenar por año de lanzamiento (más reciente primero)
+                const sortedSeries = seriesData.sort((a, b) =>
+                    (b.releaseYear || 0) - (a.releaseYear || 0)
+                )
+
+                setAllSeries(sortedSeries)
+                setLoading(false)
+            } catch (err) {
+                console.error('Error fetching series:', err)
+                setError(err.message || 'Failed to fetch series')
+                setLoading(false)
+            }
         }
-    }, [data])
+
+        fetchSeries()
+    }, [])
 
     // Calcular series para la página actual
     useEffect(() => {
@@ -52,16 +65,15 @@ export default function SeriesPage() {
 
     // Cambiar de página
     const goToPage = (pageNumber) => {
-        if (pageNumber >= 1 && pageNumber <= totalPages) {
-            setCurrentPage(pageNumber)
-            window.scrollTo(0, 0)
-        }
+        setCurrentPage(pageNumber)
+        window.scrollTo(0, 0)
     }
 
     // Abrir modal con los detalles de la serie
     const handleItemClick = (serie) => {
         setSelectedItem(serie)
         setIsModalOpen(true)
+        // Bloquear scroll del body
         document.body.style.overflow = 'hidden'
     }
 
@@ -69,13 +81,12 @@ export default function SeriesPage() {
     const closeModal = () => {
         setIsModalOpen(false)
         setSelectedItem(null)
+        // Restaurar scroll
         document.body.style.overflow = 'unset'
     }
 
-    // Botones de paginación mejorados
+    // Botones de paginación
     const renderPagination = () => {
-        if (totalPages <= 1) return null
-
         const pageNumbers = []
         const maxPagesToShow = 5
 
@@ -91,105 +102,70 @@ export default function SeriesPage() {
         }
 
         return (
-            <div className="flex flex-col md:flex-row justify-between items-center gap-4 mt-8">
-                {/* Información de página */}
-                <div className="text-gray-400 text-sm bg-gray-800/50 px-4 py-2 rounded-lg">
-                    Page {currentPage} of {totalPages} •
-                    Showing {((currentPage - 1) * itemsPerPage) + 1} to{' '}
-                    {Math.min(currentPage * itemsPerPage, allSeries.length)} of{' '}
-                    {allSeries.length} series
-                </div>
+            <div className="flex justify-center items-center space-x-2 mt-8">
+                {/* Botón Anterior */}
+                <button
+                    onClick={() => goToPage(currentPage - 1)}
+                    disabled={currentPage === 1}
+                    className={`px-4 py-2 rounded-lg ${currentPage === 1
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                        }`}
+                >
+                    ← Previous
+                </button>
 
-                {/* Controles de paginación */}
-                <div className="flex flex-wrap justify-center items-center gap-2">
-                    {/* Botón Primera Página */}
-                    <button
-                        onClick={() => goToPage(1)}
-                        disabled={currentPage === 1}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === 1
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            : 'bg-gray-700 hover:bg-gray-600 text-white'
-                            }`}
-                    >
-                        « First
-                    </button>
-
-                    {/* Botón Anterior */}
-                    <button
-                        onClick={() => goToPage(currentPage - 1)}
-                        disabled={currentPage === 1}
-                        className={`px-3 py-2 rounded-lg transition-colors ${currentPage === 1
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            : 'bg-gray-700 hover:bg-gray-600 text-white'
-                            }`}
-                    >
-                        ← Prev
-                    </button>
-
-                    {/* Indicador si hay páginas anteriores */}
-                    {startPage > 1 && (
-                        <span className="text-gray-500 px-2">...</span>
-                    )}
-
-                    {/* Números de página */}
-                    {pageNumbers.map(number => (
+                {/* Primera página */}
+                {startPage > 1 && (
+                    <>
                         <button
-                            key={number}
-                            onClick={() => goToPage(number)}
-                            className={`px-3 py-2 min-w-10 rounded-lg transition-colors ${currentPage === number
-                                ? 'bg-blue-600 text-white font-bold'
-                                : 'bg-gray-700 hover:bg-gray-600 text-white'
-                                }`}
+                            onClick={() => goToPage(1)}
+                            className="px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"
                         >
-                            {number}
+                            1
                         </button>
-                    ))}
+                        {startPage > 2 && <span className="text-gray-500">...</span>}
+                    </>
+                )}
 
-                    {/* Indicador si hay páginas siguientes */}
-                    {endPage < totalPages && (
-                        <span className="text-gray-500 px-2">...</span>
-                    )}
-
-                    {/* Botón Siguiente */}
+                {/* Números de página */}
+                {pageNumbers.map(number => (
                     <button
-                        onClick={() => goToPage(currentPage + 1)}
-                        disabled={currentPage === totalPages}
-                        className={`px-3 py-2 rounded-lg transition-colors ${currentPage === totalPages
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        key={number}
+                        onClick={() => goToPage(number)}
+                        className={`px-3 py-2 rounded-lg ${currentPage === number
+                            ? 'bg-blue-600 text-white'
                             : 'bg-gray-700 hover:bg-gray-600 text-white'
                             }`}
                     >
-                        Next →
+                        {number}
                     </button>
+                ))}
 
-                    {/* Botón Última Página */}
-                    <button
-                        onClick={() => goToPage(totalPages)}
-                        disabled={currentPage === totalPages}
-                        className={`px-3 py-2 rounded-lg text-sm transition-colors ${currentPage === totalPages
-                            ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
-                            : 'bg-gray-700 hover:bg-gray-600 text-white'
-                            }`}
-                    >
-                        Last »
-                    </button>
-                </div>
+                {/* Última página */}
+                {endPage < totalPages && (
+                    <>
+                        {endPage < totalPages - 1 && <span className="text-gray-500">...</span>}
+                        <button
+                            onClick={() => goToPage(totalPages)}
+                            className="px-3 py-2 rounded-lg bg-gray-700 hover:bg-gray-600"
+                        >
+                            {totalPages}
+                        </button>
+                    </>
+                )}
 
-                {/* Selector de página */}
-                <div className="flex items-center space-x-2">
-                    <span className="text-gray-400 text-sm">Go to:</span>
-                    <select
-                        value={currentPage}
-                        onChange={(e) => goToPage(Number(e.target.value))}
-                        className="bg-gray-700 border border-gray-600 rounded-lg px-3 py-2 text-white text-sm transition-colors hover:bg-gray-600"
-                    >
-                        {Array.from({ length: totalPages }, (_, i) => i + 1).map(page => (
-                            <option key={page} value={page}>
-                                Page {page}
-                            </option>
-                        ))}
-                    </select>
-                </div>
+                {/* Botón Siguiente */}
+                <button
+                    onClick={() => goToPage(currentPage + 1)}
+                    disabled={currentPage === totalPages}
+                    className={`px-4 py-2 rounded-lg ${currentPage === totalPages
+                        ? 'bg-gray-800 text-gray-500 cursor-not-allowed'
+                        : 'bg-gray-700 hover:bg-gray-600 text-white'
+                        }`}
+                >
+                    Next →
+                </button>
             </div>
         )
     }
@@ -205,21 +181,12 @@ export default function SeriesPage() {
                     ← Back to Home
                 </button>
 
-                <div className="flex flex-col md:flex-row justify-between items-start md:items-center mb-8 gap-4">
-                    <div>
-                        <h1 className="text-4xl font-bold">Popular Series</h1>
-                        {!loading && !error && allSeries.length > 0 && (
-                            <p className="text-gray-400 mt-2">
-                                {allSeries.length} series • {totalPages} pages • {itemsPerPage} per page
-                            </p>
-                        )}
-                    </div>
-
-                    {!loading && !error && allSeries.length > 0 && (
-                        <div className="flex items-center gap-4">
-                            <div className="text-gray-400 text-sm bg-gray-800/50 px-4 py-2 rounded-lg">
-                                {itemsPerPage} series per page
-                            </div>
+                <div className="flex justify-between items-center mb-8">
+                    <h1 className="text-4xl font-bold">Popular Series</h1>
+                    {!loading && !error && (
+                        <div className="text-gray-400">
+                            Page {currentPage} of {totalPages} •
+                            Showing {currentSeries.length} of {allSeries.length} series
                         </div>
                     )}
                 </div>
@@ -245,7 +212,7 @@ export default function SeriesPage() {
                     </div>
                 ) : (
                     <>
-                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-6">
+                        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-6">
                             {currentSeries.map((serie) => (
                                 <div
                                     key={serie.title}
@@ -265,10 +232,10 @@ export default function SeriesPage() {
                                         <div className="absolute top-2 right-2 bg-black/70 px-2 py-1 rounded text-sm">
                                             {serie.releaseYear || 'N/A'}
                                         </div>
-                                        <div className="absolute bottom-2 left-2 bg-blue-600 px-2 py-1 rounded text-xs font-bold">
-                                            SERIES
-                                        </div>
                                         <div className="absolute bottom-0 left-0 right-0 bg-linear-to-t from-black/80 to-transparent p-4">
+                                            <h3 className="font-semibold text-lg text-white">
+                                                {serie.title}
+                                            </h3>
                                             <p className="text-gray-300 text-sm">Click for details →</p>
                                         </div>
                                     </div>
@@ -277,11 +244,11 @@ export default function SeriesPage() {
                                             {serie.title}
                                         </h3>
                                         <div className="flex justify-between items-center text-sm">
-                                            <span className="text-gray-400">
-                                                {serie.releaseYear || 'Unknown'}
-                                            </span>
                                             <span className="px-2 py-1 bg-blue-600 rounded">
                                                 Series
+                                            </span>
+                                            <span className="text-gray-400">
+                                                {serie.releaseYear || 'Unknown'}
                                             </span>
                                         </div>
                                     </div>
@@ -291,14 +258,6 @@ export default function SeriesPage() {
 
                         {/* Paginación */}
                         {totalPages > 1 && renderPagination()}
-
-                        {/* Información del grid */}
-                        {!loading && !error && allSeries.length > 0 && (
-                            <div className="mt-6 text-center text-gray-400 text-sm">
-                                Grid: {currentSeries.length} series displayed •
-                                Page {currentPage} of {totalPages}
-                            </div>
-                        )}
                     </>
                 )}
             </main>
